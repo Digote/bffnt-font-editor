@@ -19,8 +19,14 @@ def main():
             print(f"Error: File not found: {file_path}")
             sys.exit(1)
     
-    # Import and run GUI
-    from .gui.main_window import run_app
+    # Import and run GUI - use absolute import for PyInstaller compatibility
+    try:
+        # When running as module (python -m bffnt_editor)
+        from .gui.main_window import run_app
+    except ImportError:
+        # When running as frozen exe (PyInstaller)
+        from bffnt_editor.gui.main_window import run_app
+    
     run_app(file_path)
 
 

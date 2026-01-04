@@ -31,7 +31,7 @@ jobs:
     - name: Build executable
       shell: pwsh
       run: |
-        pyinstaller --noconfirm --onefile --windowed --name "BFFNT_Font_Editor" --add-data "bffnt_editor/i18n;bffnt_editor/i18n" --hidden-import "PyQt6.QtCore" --hidden-import "PyQt6.QtGui" --hidden-import "PyQt6.QtWidgets" --hidden-import "PIL" --hidden-import "PIL.Image" --hidden-import "numpy" --hidden-import "bffnt_editor" --hidden-import "bffnt_editor.core" --hidden-import "bffnt_editor.texture" --hidden-import "bffnt_editor.gui" --hidden-import "bffnt_editor.i18n" bffnt_editor/__main__.py
+        pyinstaller --noconfirm --onefile --windowed --name "BFFNT_Font_Editor" --add-data "bffnt_editor/i18n;bffnt_editor/i18n" --hidden-import "PyQt6.QtCore" --hidden-import "PyQt6.QtGui" --hidden-import "PyQt6.QtWidgets" --hidden-import "PIL" --hidden-import "PIL.Image" --hidden-import "numpy" --hidden-import "bffnt_editor" --hidden-import "bffnt_editor.core" --hidden-import "bffnt_editor.core.parser" --hidden-import "bffnt_editor.core.writer" --hidden-import "bffnt_editor.core.exporter" --hidden-import "bffnt_editor.texture" --hidden-import "bffnt_editor.texture.decoder" --hidden-import "bffnt_editor.texture.encoder" --hidden-import "bffnt_editor.gui" --hidden-import "bffnt_editor.gui.main_window" --hidden-import "bffnt_editor.gui.font_viewer" --hidden-import "bffnt_editor.gui.mapping_editor" --hidden-import "bffnt_editor.i18n" --hidden-import "bffnt_editor.i18n.translations" --collect-submodules bffnt_editor run_editor.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
