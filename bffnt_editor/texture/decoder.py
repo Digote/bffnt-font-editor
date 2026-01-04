@@ -109,8 +109,10 @@ def parse_bntx(data: bytes) -> List[BNTXTexture]:
         # Fallback: data starts at 0x1000
         data_start = 0x1000
     
-    # For texture arrays, we need to read image_size * array_count bytes
-    total_data_size = image_size * array_count
+    # image_size in BNTX is the TOTAL size for all sheets combined
+    # Per-sheet size = image_size / array_count (or calculate from dimensions)
+    total_data_size = image_size
+    per_sheet_size = image_size // array_count if array_count > 0 else image_size
     tex_data = data[data_start:data_start + total_data_size]
     
     return [BNTXTexture(
@@ -124,7 +126,7 @@ def parse_bntx(data: bytes) -> List[BNTXTexture]:
         num_mips=num_mips,
         data=tex_data,
         array_count=array_count,
-        image_size=image_size
+        image_size=per_sheet_size  # Store per-sheet size, not total
     )]
 
 
@@ -192,7 +194,7 @@ def get_addr_block_linear(x: int, y: int, image_width: int, bytes_per_pixel: int
 
 
 def deswizzle_block_linear(width: int, height: int, blk_width: int, blk_height: int,
-                           bpp: int, data: bytes) -> bytes:
+                           bpp: int, data: bytes, block_height_override: int = None) -> bytes:
     """
     Deswizzle block-linear tiled data.
     
@@ -203,6 +205,7 @@ def deswizzle_block_linear(width: int, height: int, blk_width: int, blk_height: 
         blk_height: Block height (1 for uncompressed, 4 for BCn)
         bpp: Bytes per pixel/block
         data: Raw texture data
+        block_height_override: If provided, use this block height instead of calculating
         
     Returns:
         Deswizzled data
@@ -211,9 +214,12 @@ def deswizzle_block_linear(width: int, height: int, blk_width: int, blk_height: 
     width_in_blocks = div_round_up(width, blk_width)
     height_in_blocks = div_round_up(height, blk_height)
     
-    # Calculate the correct block height for this texture
-    # This is the key fix - use height in blocks, not pixels
-    gob_block_height = calculate_block_height(height_in_blocks)
+    # Use override if provided, otherwise calculate
+    if block_height_override is not None:
+        gob_block_height = block_height_override
+    else:
+        # Calculate the correct block height for this texture
+        gob_block_height = calculate_block_height(height_in_blocks)
     
     linear_size = width_in_blocks * height_in_blocks * bpp
     result = bytearray(linear_size)
@@ -418,16 +424,34 @@ def decode_bntx_sheet(tex: BNTXTexture, sheet_index: int) -> Image.Image:
     """
     bpp, blk_width, blk_height = get_format_info(tex.format)
     
-    # Calculate the size of a single sheet
-    # Note: tex.image_size is the TOTAL size for all sheets, not per-sheet
-    calculated_sheet_size = div_round_up(tex.width, blk_width) * div_round_up(tex.height, blk_height) * bpp
-    sheet_size = calculated_sheet_size
+    # Calculate the linear size of a single sheet (unpadded)
+    width_in_blocks = div_round_up(tex.width, blk_width)
+    height_in_blocks = div_round_up(tex.height, blk_height)
+    linear_sheet_size = width_in_blocks * height_in_blocks * bpp
+    
+    # Use image_size from BNTX if available (includes alignment padding)
+    # image_size in BNTX is per-sheet size, properly aligned
+    if tex.image_size > 0:
+        sheet_size = tex.image_size
+    else:
+        # Fallback: calculate with alignment (512-byte GOB alignment)
+        sheet_size = round_up(linear_sheet_size, 512)
     
     # Extract data for this sheet
     data_start = sheet_index * sheet_size
-    sheet_data = tex.data[data_start:data_start + sheet_size]
+    data_end = data_start + sheet_size
+    
+    if data_end > len(tex.data):
+        print(f"Warning: Sheet {sheet_index} data extends beyond texture data "
+              f"(need {data_end}, have {len(tex.data)})")
+        # Pad with zeros if needed
+        sheet_data = tex.data[data_start:] + bytes(data_end - len(tex.data))
+    else:
+        sheet_data = tex.data[data_start:data_end]
     
     # Deswizzle (always use block-linear for Switch textures)
+    # Note: We use automatic block height calculation, not the size_range from BNTX
+    # because size_range often contains other info or is incorrectly parsed
     deswizzled = deswizzle_block_linear(
         tex.width, tex.height,
         blk_width, blk_height,

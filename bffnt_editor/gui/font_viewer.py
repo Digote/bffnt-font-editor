@@ -61,6 +61,7 @@ class SheetViewer(QWidget):
         self.cell_height = cell_height + 1
         self.cells_per_row = cells_per_row
         self.cells_per_column = cells_per_column
+        self._update_fixed_size()
         self.update()
         self.updateGeometry()
     
@@ -71,6 +72,7 @@ class SheetViewer(QWidget):
             self.zoom = new_zoom
             self._cached_scaled_pixmap = None  # Invalidate cache
             self._cached_zoom = 0.0
+            self._update_fixed_size()
             self.update()
             self.updateGeometry()
     
@@ -78,6 +80,17 @@ class SheetViewer(QWidget):
         """Toggle grid visibility."""
         self.show_grid = show
         self.update()
+    
+    def _update_fixed_size(self):
+        """Update the fixed size based on current pixmap and zoom."""
+        if self.sheet_pixmap:
+            new_size = QSize(
+                int(self.sheet_pixmap.width() * self.zoom),
+                int(self.sheet_pixmap.height() * self.zoom)
+            )
+            self.setFixedSize(new_size)
+        else:
+            self.setMinimumSize(200, 150)
     
     def sizeHint(self) -> QSize:
         if self.sheet_pixmap:
@@ -209,7 +222,7 @@ class GlyphCell(QFrame):
         
         self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
         self.setLineWidth(1)
-        self.setFixedSize(64, 80)
+        self.setFixedSize(80, 100)  # Larger cells for better glyph display
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         
         self._hovered = False
@@ -242,7 +255,7 @@ class GlyphCell(QFrame):
         if self.pixmap and not self.pixmap.isNull():
             # Available space for glyph (leave room for text at bottom)
             available_width = self.width() - 4
-            available_height = self.height() - 28  # Leave space for text
+            available_height = self.height() - 24  # Leave space for text
             
             # Scale pixmap to fit while maintaining aspect ratio
             scaled = self.pixmap.scaled(
@@ -312,8 +325,8 @@ class CharacterGrid(QScrollArea):
         # Reverse char_map for lookup
         glyph_to_char = {v: k for k, v in char_map.items()}
         
-        # Calculate columns based on current viewport
-        cell_width = 68
+        # Calculate columns based on current viewport (cell width = 84 with spacing)
+        cell_width = 84
         viewport_width = self.viewport().width()
         if viewport_width > 100:
             self.columns = max(4, viewport_width // cell_width)
@@ -341,7 +354,7 @@ class CharacterGrid(QScrollArea):
     def _deferred_reorganize(self):
         """Reorganize grid after layout has settled."""
         if self.cells:
-            cell_width = 68
+            cell_width = 84
             new_columns = max(4, self.viewport().width() // cell_width)
             if new_columns != self.columns:
                 self.columns = new_columns
@@ -353,7 +366,7 @@ class CharacterGrid(QScrollArea):
             return
         
         # Adjust columns based on width
-        cell_width = 68
+        cell_width = 84
         new_columns = max(4, self.viewport().width() // cell_width)
         
         if new_columns != self.columns:
@@ -490,22 +503,21 @@ class PreviewCanvas(QWidget):
         if not self.bffnt or not self.glyphs or not self.text:
             # Draw placeholder text
             painter.setPen(QColor(100, 100, 100))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, 
-                           "Type text above to preview")
+            painter.drawText(5, 25, "Type text above to preview")
             return
         
         # Set composition mode for proper blending with outlined fonts
         # Lighten mode: uses brighter pixel, making white outlines blend smoothly
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Lighten)
         
-        # Render text
-        x = 20
-        y = 30
+        # Render text - start from left edge, top area
+        x = 5
+        y = 5  # Start near top
         line_height = int(self.bffnt.finf.line_feed * self.scale)
         
         for char in self.text:
             if char == '\n':
-                x = 20
+                x = 5
                 y += line_height
                 continue
             
@@ -522,14 +534,14 @@ class PreviewCanvas(QWidget):
             # Get scaled glyph from cache
             scaled_pixmap = self._get_scaled_glyph(glyph_index)
             
-            # Get spacing info from CWDH
-            if width_info and width_info.char_width > 0:
+            # Get spacing info from CWDH - use advance for positioning
+            if width_info:
                 left = int(width_info.left * self.scale)
-                char_width = int(width_info.char_width * self.scale)
+                advance = int(width_info.char_width * self.scale) if width_info.char_width > 0 else scaled_pixmap.width()
             else:
                 # Fallback: use actual glyph width
                 left = 0
-                char_width = scaled_pixmap.width()
+                advance = scaled_pixmap.width()
             
             painter.drawPixmap(x + left, y, scaled_pixmap)
-            x += char_width
+            x += advance

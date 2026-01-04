@@ -1,4 +1,4 @@
-# BFFNT Font Editor v1.0
+# BFFNT Font Editor v1.2
 
 A modern Python tool for viewing and editing Nintendo Switch `.bffnt` font files.
 

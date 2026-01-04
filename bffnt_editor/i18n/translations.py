@@ -21,8 +21,8 @@ LANGUAGES = {
 EN = {
     # Window
     "window": {
-        "title": "BFFNT Font Editor v1.0",
-        "title_with_file": "BFFNT Font Editor v1.0 - {filename}",
+        "title": "BFFNT Font Editor v1.2",
+        "title_with_file": "BFFNT Font Editor v1.2 - {filename}",
         "modified_indicator": " *",
     },
     
@@ -200,8 +200,8 @@ EN = {
 PT_BR = {
     # Window
     "window": {
-        "title": "BFFNT Font Editor v1.0",
-        "title_with_file": "BFFNT Font Editor v1.0 - {filename}",
+        "title": "BFFNT Font Editor v1.2",
+        "title_with_file": "BFFNT Font Editor v1.2 - {filename}",
         "modified_indicator": " *",
     },
     

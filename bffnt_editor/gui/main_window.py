@@ -110,8 +110,17 @@ class FontLoadWorker(QThread):
     def _convert_glyphs_parallel(self, glyphs: List[Image.Image]) -> List[QPixmap]:
         """Convert PIL images to QPixmaps with parallel resizing."""
         def process_one(g: Image.Image) -> QPixmap:
-            # Use BILINEAR for thumbnails - faster than LANCZOS with acceptable quality
-            resized = g.resize((48, 48), Image.Resampling.BILINEAR)
+            # Keep original size for better quality - resize only if larger than needed
+            # Most glyphs are around 108x128, we want to preserve quality
+            max_size = 128
+            if g.width > max_size or g.height > max_size:
+                # Scale down proportionally
+                ratio = min(max_size / g.width, max_size / g.height)
+                new_w = int(g.width * ratio)
+                new_h = int(g.height * ratio)
+                resized = g.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            else:
+                resized = g
             return pil_to_qpixmap(resized)
         
         # Use more workers for better parallelism (up to CPU count)
@@ -147,7 +156,8 @@ class MainWindow(QMainWindow):
     def _setup_ui(self):
         """Setup the main UI layout."""
         self.setWindowTitle(tr("window.title"))
-        self.setMinimumSize(1100, 800)
+        # Reduced minimum size for better small screen support
+        self.setMinimumSize(800, 600)
         self.resize(1400, 900)
         
         # Central widget
@@ -205,9 +215,11 @@ class MainWindow(QMainWindow):
         sheet_controls.addStretch()
         sheet_layout.addLayout(sheet_controls)
         
-        # Sheet viewer in scroll area
+        # Sheet viewer in scroll area - enable both scrollbars
         self.sheet_scroll = QScrollArea()
-        self.sheet_scroll.setWidgetResizable(True)
+        self.sheet_scroll.setWidgetResizable(False)  # Don't resize, use scrollbars instead
+        self.sheet_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.sheet_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.sheet_viewer = SheetViewer()
         self.sheet_viewer.cellClicked.connect(self._on_cell_clicked)
         self.sheet_viewer.cellHovered.connect(self._on_cell_hovered)
@@ -226,8 +238,10 @@ class MainWindow(QMainWindow):
         self.text_preview = TextPreview()
         self.tab_widget.addTab(self.text_preview, tr("tabs.text_preview"))
         
-        # Set splitter sizes
-        splitter.setSizes([280, 920])
+        # Set splitter sizes (proportional, will auto-adjust)
+        splitter.setSizes([250, 750])
+        splitter.setStretchFactor(0, 0)  # Left panel doesn't stretch
+        splitter.setStretchFactor(1, 1)  # Right panel stretches
         
         # Status bar
         self.status_bar = QStatusBar()
@@ -238,17 +252,25 @@ class MainWindow(QMainWindow):
         """Create the left info panel."""
         panel = QWidget()
         panel.setMaximumWidth(320)
-        panel.setMinimumWidth(250)
+        panel.setMinimumWidth(200)
         
-        layout = QVBoxLayout(panel)
+        # Use scroll area for the panel content to handle small screens
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
         
         # Font Info Group
         font_group = QGroupBox(tr("info.font_info"))
         font_group.setObjectName("font_info_group")
         font_layout = QFormLayout(font_group)
-        font_layout.setSpacing(8)
-        font_layout.setContentsMargins(12, 16, 12, 12)
+        font_layout.setSpacing(4)
+        font_layout.setContentsMargins(8, 12, 8, 8)
         
         self.info_labels = {}
         self.info_row_labels = {}  # Store row labels for retranslation
@@ -280,8 +302,8 @@ class MainWindow(QMainWindow):
         tex_group = QGroupBox(tr("info.texture_info"))
         tex_group.setObjectName("texture_info_group")
         tex_layout = QFormLayout(tex_group)
-        tex_layout.setSpacing(8)
-        tex_layout.setContentsMargins(12, 16, 12, 12)
+        tex_layout.setSpacing(4)
+        tex_layout.setContentsMargins(8, 12, 8, 8)
         
         # Texture info fields
         tex_fields = [
@@ -308,8 +330,8 @@ class MainWindow(QMainWindow):
         char_group = QGroupBox(tr("info.character_info"))
         char_group.setObjectName("char_info_group")
         char_layout = QFormLayout(char_group)
-        char_layout.setSpacing(8)
-        char_layout.setContentsMargins(12, 16, 12, 12)
+        char_layout.setSpacing(4)
+        char_layout.setContentsMargins(8, 12, 8, 8)
         
         char_fields = [
             ("info.total_glyphs", "total_glyphs"),
@@ -332,25 +354,28 @@ class MainWindow(QMainWindow):
         glyph_group = QGroupBox(tr("info.selected_glyph"))
         glyph_group.setObjectName("glyph_group")
         glyph_layout = QVBoxLayout(glyph_group)
-        glyph_layout.setSpacing(8)
+        glyph_layout.setSpacing(4)
+        glyph_layout.setContentsMargins(8, 12, 8, 8)
         
         self.glyph_preview = QLabel()
         self.glyph_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.glyph_preview.setMinimumHeight(100)
-        self.glyph_preview.setStyleSheet("background: #222; border-radius: 6px; padding: 10px;")
+        self.glyph_preview.setMinimumHeight(70)
+        self.glyph_preview.setMaximumHeight(100)
+        self.glyph_preview.setStyleSheet("background: #222; border-radius: 6px; padding: 6px;")
         glyph_layout.addWidget(self.glyph_preview)
         
         # Non-editable info row
         info_row = QHBoxLayout()
-        info_row.setSpacing(12)
+        info_row.setSpacing(8)
         
         # Index
         index_container = QVBoxLayout()
+        index_container.setSpacing(0)
         index_label = QLabel("Index")
-        index_label.setStyleSheet("color: #6c7086; font-size: 10px;")
+        index_label.setStyleSheet("color: #6c7086; font-size: 9px;")
         index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_labels["glyph_index"] = QLabel("-")
-        self.info_labels["glyph_index"].setStyleSheet("color: #89b4fa; font-size: 14px; font-weight: bold;")
+        self.info_labels["glyph_index"].setStyleSheet("color: #89b4fa; font-size: 12px; font-weight: bold;")
         self.info_labels["glyph_index"].setAlignment(Qt.AlignmentFlag.AlignCenter)
         index_container.addWidget(index_label)
         index_container.addWidget(self.info_labels["glyph_index"])
@@ -358,11 +383,12 @@ class MainWindow(QMainWindow):
         
         # Character
         char_container = QVBoxLayout()
+        char_container.setSpacing(0)
         char_label = QLabel("Character")
-        char_label.setStyleSheet("color: #6c7086; font-size: 10px;")
+        char_label.setStyleSheet("color: #6c7086; font-size: 9px;")
         char_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_labels["glyph_char"] = QLabel("-")
-        self.info_labels["glyph_char"].setStyleSheet("color: #a6e3a1; font-size: 13px; font-weight: bold;")
+        self.info_labels["glyph_char"].setStyleSheet("color: #a6e3a1; font-size: 11px; font-weight: bold;")
         self.info_labels["glyph_char"].setAlignment(Qt.AlignmentFlag.AlignCenter)
         char_container.addWidget(char_label)
         char_container.addWidget(self.info_labels["glyph_char"])
@@ -379,25 +405,26 @@ class MainWindow(QMainWindow):
         
         # Metrics section title
         self.metrics_title_label = QLabel(tr("glyph.metrics_title"))
-        self.metrics_title_label.setStyleSheet("color: #cdd6f4; font-size: 11px; font-weight: bold; margin-top: 4px;")
+        self.metrics_title_label.setStyleSheet("color: #cdd6f4; font-size: 10px; font-weight: bold; margin-top: 2px;")
         glyph_layout.addWidget(self.metrics_title_label)
         
         # Metrics in a horizontal compact layout
         metrics_row = QHBoxLayout()
-        metrics_row.setSpacing(8)
+        metrics_row.setSpacing(2)
         
         # Left metric
         left_container = QVBoxLayout()
-        left_container.setSpacing(2)
+        left_container.setSpacing(0)
         self.left_label = QLabel(tr("glyph.left"))
-        self.left_label.setStyleSheet("color: #6c7086; font-size: 10px;")
+        self.left_label.setStyleSheet("color: #6c7086; font-size: 9px;")
         self.left_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.left_label.setToolTip(tr("glyph.left_tooltip"))
         self.glyph_left_spin = QSpinBox()
         self.glyph_left_spin.setRange(-128, 127)
         self.glyph_left_spin.setEnabled(False)
         self.glyph_left_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.glyph_left_spin.setFixedWidth(60)
+        self.glyph_left_spin.setMinimumWidth(45)
+        self.glyph_left_spin.setMaximumWidth(55)
         self.glyph_left_spin.valueChanged.connect(self._on_glyph_left_changed)
         self.glyph_left_spin.setToolTip(tr("glyph.left_tooltip"))
         left_container.addWidget(self.left_label)
@@ -406,16 +433,17 @@ class MainWindow(QMainWindow):
         
         # Width metric
         width_container = QVBoxLayout()
-        width_container.setSpacing(2)
+        width_container.setSpacing(0)
         self.width_label = QLabel(tr("glyph.width"))
-        self.width_label.setStyleSheet("color: #6c7086; font-size: 10px;")
+        self.width_label.setStyleSheet("color: #6c7086; font-size: 9px;")
         self.width_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.width_label.setToolTip(tr("glyph.width_tooltip"))
         self.glyph_width_spin = QSpinBox()
         self.glyph_width_spin.setRange(0, 255)
         self.glyph_width_spin.setEnabled(False)
         self.glyph_width_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.glyph_width_spin.setFixedWidth(60)
+        self.glyph_width_spin.setMinimumWidth(45)
+        self.glyph_width_spin.setMaximumWidth(55)
         self.glyph_width_spin.valueChanged.connect(self._on_glyph_width_changed)
         self.glyph_width_spin.setToolTip(tr("glyph.width_tooltip"))
         width_container.addWidget(self.width_label)
@@ -424,16 +452,17 @@ class MainWindow(QMainWindow):
         
         # Advance metric
         advance_container = QVBoxLayout()
-        advance_container.setSpacing(2)
+        advance_container.setSpacing(0)
         self.advance_label = QLabel(tr("glyph.advance"))
-        self.advance_label.setStyleSheet("color: #6c7086; font-size: 10px;")
+        self.advance_label.setStyleSheet("color: #6c7086; font-size: 9px;")
         self.advance_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.advance_label.setToolTip(tr("glyph.advance_tooltip"))
         self.glyph_advance_spin = QSpinBox()
         self.glyph_advance_spin.setRange(0, 255)
         self.glyph_advance_spin.setEnabled(False)
         self.glyph_advance_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.glyph_advance_spin.setFixedWidth(60)
+        self.glyph_advance_spin.setMinimumWidth(45)
+        self.glyph_advance_spin.setMaximumWidth(55)
         self.glyph_advance_spin.valueChanged.connect(self._on_glyph_advance_changed)
         self.glyph_advance_spin.setToolTip(tr("glyph.advance_tooltip"))
         advance_container.addWidget(self.advance_label)
@@ -451,6 +480,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(glyph_group)
         
         layout.addStretch()
+        
+        # Set scroll content and add to panel
+        scroll.setWidget(scroll_content)
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.addWidget(scroll)
         
         return panel
     
@@ -677,7 +712,9 @@ class MainWindow(QMainWindow):
         """Setup toolbar."""
         toolbar = QToolBar("Main Toolbar")
         toolbar.setMovable(False)
-        toolbar.setIconSize(QSize(32, 32))
+        toolbar.setIconSize(QSize(24, 24))
+        # Allow toolbar to wrap on small screens
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(toolbar)
         self.main_toolbar = toolbar  # Store reference for retranslation
         
@@ -752,15 +789,15 @@ class MainWindow(QMainWindow):
             QToolBar {
                 background-color: #181825;
                 border: none;
-                spacing: 6px;
-                padding: 8px;
+                spacing: 4px;
+                padding: 4px 6px;
             }
             QToolButton {
                 background-color: transparent;
                 color: #cdd6f4;
-                padding: 10px 16px;
+                padding: 6px 10px;
                 border-radius: 6px;
-                font-size: 14px;
+                font-size: 12px;
             }
             QToolButton:hover {
                 background-color: #313244;
@@ -774,14 +811,14 @@ class MainWindow(QMainWindow):
             QTabBar::tab {
                 background-color: #181825;
                 color: #a6adc8;
-                padding: 12px 24px;
-                margin-right: 3px;
+                padding: 8px 14px;
+                margin-right: 2px;
                 margin-bottom: 0px;
                 border: 1px solid #313244;
                 border-bottom: none;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
-                font-size: 14px;
+                font-size: 12px;
             }
             QTabBar::tab:selected {
                 background-color: #1e1e2e;
@@ -797,14 +834,14 @@ class MainWindow(QMainWindow):
                 font-weight: bold;
                 border: 2px solid #313244;
                 border-radius: 6px;
-                margin-top: 12px;
-                padding-top: 12px;
-                font-size: 14px;
+                margin-top: 10px;
+                padding-top: 8px;
+                font-size: 12px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
+                left: 10px;
+                padding: 0 6px;
             }
             QScrollArea {
                 border: 1px solid #313244;
@@ -918,16 +955,17 @@ class MainWindow(QMainWindow):
             }
             QLabel {
                 color: #cdd6f4;
-                font-size: 13px;
+                font-size: 12px;
             }
             QSpinBox {
                 background-color: #313244;
-                border: 2px solid #45475a;
-                border-radius: 6px;
-                padding: 6px 8px;
-                font-size: 13px;
+                border: 1px solid #45475a;
+                border-radius: 4px;
+                padding: 2px 4px;
+                font-size: 11px;
                 font-weight: bold;
                 color: #cdd6f4;
+                min-height: 18px;
             }
             QSpinBox:hover {
                 border-color: #585b70;
@@ -943,8 +981,8 @@ class MainWindow(QMainWindow):
             QSpinBox::up-button, QSpinBox::down-button {
                 background-color: #45475a;
                 border: none;
-                width: 18px;
-                border-radius: 3px;
+                width: 14px;
+                border-radius: 2px;
             }
             QSpinBox::up-button:hover, QSpinBox::down-button:hover {
                 background-color: #585b70;
@@ -954,17 +992,17 @@ class MainWindow(QMainWindow):
             }
             QSpinBox::up-arrow {
                 image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 5px solid #cdd6f4;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+                border-bottom: 4px solid #cdd6f4;
                 width: 0;
                 height: 0;
             }
             QSpinBox::down-arrow {
                 image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #cdd6f4;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+                border-top: 4px solid #cdd6f4;
                 width: 0;
                 height: 0;
             }

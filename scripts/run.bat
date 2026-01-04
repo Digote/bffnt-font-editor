@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0\.."
 echo ========================================
-echo  BFFNT Font Editor v1.0
+echo  BFFNT Font Editor v1.2
 echo ========================================
 echo.
 

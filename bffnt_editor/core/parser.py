@@ -438,8 +438,24 @@ class BFFNTParser:
         sheet_data = []
         if sheet_data_offset != 0:
             f.seek(sheet_data_offset)
-            for _ in range(sheet_count):
-                sheet_data.append(f.read(sheet_size))
+            
+            # Check if this is a Switch BNTX texture (single container for all sheets)
+            first_bytes = f.read(4)
+            f.seek(sheet_data_offset)  # Reset position
+            
+            if first_bytes == b'BNTX':
+                # For Switch BNTX: read the entire BNTX block as a single chunk
+                # The BNTX size is stored at offset 0x18 from BNTX start
+                f.seek(sheet_data_offset + 0x18)
+                bntx_total_size = struct.unpack('<I', f.read(4))[0]
+                f.seek(sheet_data_offset)
+                
+                # Read entire BNTX as single chunk
+                sheet_data.append(f.read(bntx_total_size))
+            else:
+                # Legacy format: read each sheet separately
+                for _ in range(sheet_count):
+                    sheet_data.append(f.read(sheet_size))
         
         return TGLP(
             section_size=section_size,
