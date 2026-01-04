@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.conda/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Logs
+*.log
+bffnt_debug.log
+
+# Build artifacts
+*.exe
+*.spec
+*.pyd
+*.dll
+
+# PyInstaller
+*.manifest
+*.rc
+
+# Exported files (user data - don't include)
+*_exported/
+*.bffnt.bak
+exported_*/
+
+# Test files (don't include user's font files)
+*.bffnt
+!test_fonts/*.bffnt
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+~$*

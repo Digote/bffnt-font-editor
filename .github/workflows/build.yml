@@ -1,0 +1,55 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Build executable
+      run: |
+        pyinstaller --noconfirm --onefile --windowed `
+          --name "BFFNT_Font_Editor" `
+          --add-data "i18n;i18n" `
+          --hidden-import "PyQt6.QtCore" `
+          --hidden-import "PyQt6.QtGui" `
+          --hidden-import "PyQt6.QtWidgets" `
+          --hidden-import "PIL" `
+          --hidden-import "PIL.Image" `
+          --hidden-import "numpy" `
+          main.py
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BFFNT_Font_Editor_Windows
+        path: dist/BFFNT_Font_Editor.exe
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/BFFNT_Font_Editor.exe
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
