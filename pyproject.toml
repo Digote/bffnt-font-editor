@@ -37,11 +37,11 @@ dependencies = [
 "Bug Tracker" = "https://github.com/Digote/bffnt-font-editor/issues"
 
 [project.scripts]
-bffnt-editor = "bffnt_preview.main:main"
+bffnt-editor = "bffnt_editor.__main__:main"
 
 [project.gui-scripts]
-bffnt-font-editor = "bffnt_preview.main:main"
+bffnt-font-editor = "bffnt_editor.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["bffnt_preview*"]
+include = ["bffnt_editor*"]

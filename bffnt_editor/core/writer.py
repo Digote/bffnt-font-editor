@@ -9,7 +9,7 @@ import struct
 from typing import BinaryIO, Dict, List, Optional
 from io import BytesIO
 
-from .bffnt_parser import (
+from .parser import (
     BFFNTFile, FFNTHeader, FINF, TGLP, CWDH, CMAP, KRNG,
     CMAPType, CMAPDirect, CMAPTable, CMAPScan,
     CharWidthEntry, TextureFormat, PlatformType

@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap, QFont
 
-from ..bffnt_parser import BFFNTFile, CharWidthEntry
+from ..core.parser import BFFNTFile, CharWidthEntry
 
 
 class MappingEditorDialog(QDialog):

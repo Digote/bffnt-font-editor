@@ -55,10 +55,10 @@ from PIL import Image
 
 logger.info("PyQt6 and PIL imports successful")
 
-from ..bffnt_parser import BFFNTFile, parse_bffnt, TextureFormat
-from ..texture_decoder import decode_all_sheets, extract_all_glyphs
-from ..export_import import export_font, import_sheets, apply_imported_sheets
-from ..bffnt_writer import save_bffnt, update_bffnt_textures
+from ..core.parser import BFFNTFile, parse_bffnt, TextureFormat
+from ..texture.decoder import decode_all_sheets, extract_all_glyphs
+from ..core.exporter import export_font, import_sheets, apply_imported_sheets
+from ..core.writer import save_bffnt, update_bffnt_textures
 from ..i18n import tr, set_language, get_language, get_available_languages
 from .font_viewer import SheetViewer, CharacterGrid, TextPreview, pil_to_qpixmap
 from .mapping_editor import MappingEditorDialog, QuickMappingDialog
@@ -1231,7 +1231,7 @@ class MainWindow(QMainWindow):
         if file_path:
             try:
                 # Extract the glyph from sheets
-                from ..texture_decoder import extract_glyph
+                from ..texture.decoder import extract_glyph
                 
                 sheet_idx, row, col = self.bffnt.get_glyph_position(glyph_index)
                 if sheet_idx < len(self.sheets):
@@ -1328,7 +1328,7 @@ class MainWindow(QMainWindow):
         self.sheet_pixmaps = [pil_to_qpixmap(sheet) for sheet in self.sheets]
         
         # Regenerate glyph pixmaps
-        from ..texture_decoder import extract_all_glyphs
+        from ..texture.decoder import extract_all_glyphs
         glyphs_pil = extract_all_glyphs(self.bffnt, self.sheets)
         
         def process_one(g):

@@ -68,10 +68,13 @@ pip install -r requirements.txt
 
 ```bash
 # Run without file (use File > Open)
-python -m bffnt_preview.main
+python -m bffnt_editor
 
 # Open a specific file
-python -m bffnt_preview.main "path/to/font.bffnt"
+python -m bffnt_editor "path/to/font.bffnt"
+
+# Or use the script (Windows)
+scripts\run.bat
 ```
 
 ### ⌨️ Keyboard Shortcuts
@@ -97,20 +100,32 @@ python -m bffnt_preview.main "path/to/font.bffnt"
 ## 📦 Project Structure
 
 ```
-bffnt_preview/
-├── main.py              # Entry point
-├── bffnt_parser.py      # BFFNT file parser
-├── bffnt_writer.py      # BFFNT file writer
-├── texture_decoder.py   # Texture decoding
-├── texture_encoder.py   # Texture encoding
-├── export_import.py     # Export/Import with metadata
-├── i18n/                # Internationalization
-│   ├── __init__.py      # Translation API
-│   └── translations.py  # Language strings
-└── gui/
-    ├── main_window.py   # Main application window
-    ├── font_viewer.py   # Sheet/Grid/Text viewers
-    └── mapping_editor.py # Character mapping editor
+bffnt-font-editor/
+├── bffnt_editor/           # Main package
+│   ├── __init__.py         # Package metadata
+│   ├── __main__.py         # Entry point
+│   ├── core/               # Core functionality
+│   │   ├── parser.py       # BFFNT file parser
+│   │   ├── writer.py       # BFFNT file writer
+│   │   └── exporter.py     # Export/Import with metadata
+│   ├── texture/            # Texture processing
+│   │   ├── decoder.py      # Texture decoding
+│   │   └── encoder.py      # Texture encoding
+│   ├── gui/                # User interface
+│   │   ├── main_window.py  # Main application window
+│   │   ├── font_viewer.py  # Sheet/Grid/Text viewers
+│   │   └── mapping_editor.py # Character mapping editor
+│   └── i18n/               # Internationalization
+│       ├── __init__.py     # Translation API
+│       └── translations.py # Language strings (EN, PT_BR)
+├── scripts/                # Utility scripts
+│   ├── run.bat             # Run the application
+│   └── build.bat           # Build executable
+├── .github/workflows/      # CI/CD
+├── requirements.txt
+├── pyproject.toml
+├── README.md
+└── LICENSE
 ```
 
 ## 🎮 Supported Formats

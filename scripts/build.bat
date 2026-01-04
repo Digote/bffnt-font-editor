@@ -7,6 +7,8 @@ echo  BFFNT Font Editor - Build Script
 echo ========================================
 echo.
 
+cd /d "%~dp0\.."
+
 REM Check if PyInstaller is installed
 pip show pyinstaller >nul 2>&1
 if errorlevel 1 (
@@ -18,17 +20,20 @@ echo.
 echo Building executable...
 echo.
 
-cd /d "%~dp0"
-
 pyinstaller --noconfirm --onefile --windowed ^
     --name "BFFNT_Font_Editor" ^
-    --add-data "i18n;i18n" ^
+    --add-data "bffnt_editor\i18n;bffnt_editor\i18n" ^
     --hidden-import "PyQt6.QtCore" ^
     --hidden-import "PyQt6.QtGui" ^
     --hidden-import "PyQt6.QtWidgets" ^
     --hidden-import "PIL" ^
     --hidden-import "numpy" ^
-    main.py
+    --hidden-import "bffnt_editor" ^
+    --hidden-import "bffnt_editor.core" ^
+    --hidden-import "bffnt_editor.texture" ^
+    --hidden-import "bffnt_editor.gui" ^
+    --hidden-import "bffnt_editor.i18n" ^
+    -m bffnt_editor
 
 echo.
 echo ========================================

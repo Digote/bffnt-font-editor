@@ -11,7 +11,7 @@ from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Any
 from PIL import Image
 
-from .bffnt_parser import (
+from .parser import (
     BFFNTFile, TGLP, CWDH, CMAP, CMAPType, CMAPDirect, CMAPTable, CMAPScan,
     CharWidthEntry, TextureFormat, PlatformType
 )

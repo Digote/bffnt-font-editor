@@ -31,7 +31,7 @@ jobs:
     - name: Build executable
       shell: pwsh
       run: |
-        pyinstaller --noconfirm --onefile --windowed --name "BFFNT_Font_Editor" --add-data "i18n;i18n" --hidden-import "PyQt6.QtCore" --hidden-import "PyQt6.QtGui" --hidden-import "PyQt6.QtWidgets" --hidden-import "PIL" --hidden-import "PIL.Image" --hidden-import "numpy" main.py
+        pyinstaller --noconfirm --onefile --windowed --name "BFFNT_Font_Editor" --add-data "bffnt_editor/i18n;bffnt_editor/i18n" --hidden-import "PyQt6.QtCore" --hidden-import "PyQt6.QtGui" --hidden-import "PyQt6.QtWidgets" --hidden-import "PIL" --hidden-import "PIL.Image" --hidden-import "numpy" --hidden-import "bffnt_editor" --hidden-import "bffnt_editor.core" --hidden-import "bffnt_editor.texture" --hidden-import "bffnt_editor.gui" --hidden-import "bffnt_editor.i18n" bffnt_editor/__main__.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4

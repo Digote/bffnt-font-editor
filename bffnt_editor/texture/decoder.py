@@ -16,7 +16,7 @@ try:
 except ImportError:
     HAS_NUMPY = False
 
-from .bffnt_parser import BFFNTFile, TGLP, TextureFormat, PlatformType
+from ..core.parser import BFFNTFile, TGLP, TextureFormat, PlatformType
 
 
 # ============================================================================

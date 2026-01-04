@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 from PIL import Image
 
-from .texture_decoder import (
+from .decoder import (
     div_round_up, round_up, pow2_round_up, calculate_block_height,
     get_addr_block_linear, get_format_info
 )

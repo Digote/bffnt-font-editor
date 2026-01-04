@@ -14,7 +14,7 @@ from PyQt6.QtGui import (
 )
 from PIL import Image
 
-from ..bffnt_parser import BFFNTFile, CharWidthEntry
+from ..core.parser import BFFNTFile, CharWidthEntry
 
 
 def pil_to_qpixmap(pil_image: Image.Image) -> QPixmap:

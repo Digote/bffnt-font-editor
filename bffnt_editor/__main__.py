@@ -1,10 +1,8 @@
 """
-BFFNT Font Editor v1.0 - Main entry point.
-
-A modern Python tool to view and edit Nintendo Switch .bffnt font files.
+BFFNT Font Editor - Entry point for running as module.
 
 Usage:
-    python -m bffnt_preview.main [font_file.bffnt]
+    python -m bffnt_editor [font_file.bffnt]
 """
 
 import sys
