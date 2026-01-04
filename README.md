@@ -54,7 +54,7 @@ A modern Python tool for viewing and editing Nintendo Switch `.bffnt` font files
 - Python 3.10+
 - PyQt6
 - Pillow
-- ReverseBox (for Switch texture deswizzling)
+- NumPy
 
 ## 🔧 Installation
 
@@ -121,8 +121,8 @@ bffnt_preview/
 | BC4 (DXT5A) | ✅ Full |
 | A8 (Alpha) | ✅ Full |
 | LA8 | ✅ Full |
-| BC1/DXT1 | 🔄 Via ReverseBox |
-| BC3/DXT5 | 🔄 Via ReverseBox |
+| BC1/DXT1 | ✅ Full |
+| BC3/DXT5 | ✅ Full |
 
 ## 📄 License
 

@@ -22,13 +22,12 @@ cd /d "%~dp0"
 
 pyinstaller --noconfirm --onefile --windowed ^
     --name "BFFNT_Font_Editor" ^
-    --icon "icon.ico" ^
     --add-data "i18n;i18n" ^
     --hidden-import "PyQt6.QtCore" ^
     --hidden-import "PyQt6.QtGui" ^
     --hidden-import "PyQt6.QtWidgets" ^
     --hidden-import "PIL" ^
-    --hidden-import "reversebox" ^
+    --hidden-import "numpy" ^
     main.py
 
 echo.
