@@ -25,6 +25,9 @@ class BFFNTWriter:
     
     def _write_u8(self, f: BinaryIO, value: int) -> None:
         f.write(struct.pack('B', value & 0xFF))
+
+    def _write_s8(self, f: BinaryIO, value: int) -> None:
+        f.write(struct.pack('b', value))
     
     def _write_u16(self, f: BinaryIO, value: int) -> None:
         fmt = '<H' if self.little_endian else '>H'
@@ -177,7 +180,7 @@ class BFFNTWriter:
         self._write_u8(f, finf.ascent)
         self._write_u16(f, finf.line_feed)
         self._write_u16(f, finf.alter_char_index)
-        self._write_u8(f, finf.default_left)
+        self._write_s8(f, finf.default_left)
         self._write_u8(f, finf.default_glyph_width)
         self._write_u8(f, finf.default_char_width)
         self._write_u8(f, finf.char_encoding)
@@ -253,7 +256,7 @@ class BFFNTWriter:
             
             # Write width entries
             for entry in cwdh.entries:
-                self._write_u8(f, entry.left)
+                self._write_s8(f, entry.left)
                 self._write_u8(f, entry.glyph_width)
                 self._write_u8(f, entry.char_width)
             

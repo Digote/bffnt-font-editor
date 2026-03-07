@@ -1,5 +1,5 @@
 @echo off
-REM Build script for BFFNT Font Editor v1.3
+REM Build script for BFFNT Font Editor v1.5.0
 REM Creates a standalone Windows executable using PyInstaller
 
 echo ========================================

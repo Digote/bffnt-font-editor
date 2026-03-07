@@ -265,6 +265,9 @@ class BFFNTParser:
     
     def _read_u8(self, f: BinaryIO) -> int:
         return struct.unpack('B', f.read(1))[0]
+
+    def _read_s8(self, f: BinaryIO) -> int:
+        return struct.unpack('b', f.read(1))[0]
     
     def _read_u16(self, f: BinaryIO) -> int:
         fmt = '<H' if self.little_endian else '>H'
@@ -386,7 +389,7 @@ class BFFNTParser:
         ascent = self._read_u8(f)
         line_feed = self._read_u16(f)
         alter_char_index = self._read_u16(f)
-        default_left = self._read_u8(f)
+        default_left = self._read_s8(f)
         default_glyph_width = self._read_u8(f)
         default_char_width = self._read_u8(f)
         char_encoding = self._read_u8(f)
@@ -490,7 +493,7 @@ class BFFNTParser:
         # Read width entries
         entries = []
         for _ in range(last_index - first_index + 1):
-            left = self._read_u8(f)
+            left = self._read_s8(f)
             glyph_width = self._read_u8(f)
             char_width = self._read_u8(f)
             entries.append(CharWidthEntry(left, glyph_width, char_width))

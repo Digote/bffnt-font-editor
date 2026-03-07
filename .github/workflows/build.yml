@@ -36,13 +36,15 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: BFFNT_Font_Editor_Windows
+        name: BFFNT_Font_Editor_Windows_${{ github.run_number }}
         path: dist/BFFNT_Font_Editor.exe
     
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
+        name: ${{ github.ref_name }}
+        tag_name: ${{ github.ref_name }}
         files: dist/BFFNT_Font_Editor.exe
         draft: false
         prerelease: false

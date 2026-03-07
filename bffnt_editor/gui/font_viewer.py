@@ -449,8 +449,6 @@ class PreviewCanvas(QWidget):
         self.glyphs: List[QPixmap] = []
         self.text = ""
         self.scale = 1.5
-        self._scaled_glyphs_cache: Dict[int, QPixmap] = {}  # Cache for scaled glyphs
-        self._cached_scale = 0.0
         
         self.setMinimumHeight(100)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -458,8 +456,6 @@ class PreviewCanvas(QWidget):
     def set_font(self, bffnt: BFFNTFile, glyphs: List[QPixmap]):
         self.bffnt = bffnt
         self.glyphs = glyphs
-        self._scaled_glyphs_cache.clear()  # Clear cache when font changes
-        self._cached_scale = 0.0
         self.update()
     
     def set_text(self, text: str):
@@ -470,27 +466,19 @@ class PreviewCanvas(QWidget):
         new_scale = max(0.5, min(4.0, scale))
         if new_scale != self.scale:
             self.scale = new_scale
-            self._scaled_glyphs_cache.clear()  # Clear cache when scale changes
-            self._cached_scale = 0.0
             self.update()
-    
-    def _get_scaled_glyph(self, glyph_index: int) -> QPixmap:
-        """Get a scaled glyph from cache or create it."""
-        if self._cached_scale != self.scale:
-            self._scaled_glyphs_cache.clear()
-            self._cached_scale = self.scale
-        
-        if glyph_index not in self._scaled_glyphs_cache:
-            pixmap = self.glyphs[glyph_index]
-            scaled = pixmap.scaled(
-                int(pixmap.width() * self.scale),
-                int(pixmap.height() * self.scale),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            self._scaled_glyphs_cache[glyph_index] = scaled
-        
-        return self._scaled_glyphs_cache[glyph_index]
+
+    def _get_effective_metrics(self, glyph_index: int) -> CharWidthEntry:
+        """Return explicit glyph metrics or the FINF defaults when missing."""
+        width_info = self.bffnt.get_char_width(glyph_index) if self.bffnt else None
+        if width_info is not None:
+            return width_info
+
+        return CharWidthEntry(
+            left=self.bffnt.finf.default_left,
+            glyph_width=self.bffnt.finf.default_glyph_width,
+            char_width=self.bffnt.finf.default_char_width,
+        )
     
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
@@ -506,14 +494,12 @@ class PreviewCanvas(QWidget):
             painter.drawText(5, 25, "Type text above to preview")
             return
         
-        # Set composition mode for proper blending with outlined fonts
-        # Lighten mode: uses brighter pixel, making white outlines blend smoothly
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Lighten)
-        
         # Render text - start from left edge, top area
         x = 5
         y = 5  # Start near top
         line_height = int(self.bffnt.finf.line_feed * self.scale)
+        baseline = int(self.bffnt.finf.ascent * self.scale)
+        glyph_baseline = int(self.bffnt.tglp.baseline * self.scale)
         
         for char in self.text:
             if char == '\n':
@@ -529,19 +515,33 @@ class PreviewCanvas(QWidget):
                 x += int(self.bffnt.finf.default_char_width * self.scale)
                 continue
             
-            width_info = self.bffnt.get_char_width(glyph_index)
+            width_info = self._get_effective_metrics(glyph_index)
             
-            # Get scaled glyph from cache
-            scaled_pixmap = self._get_scaled_glyph(glyph_index)
-            
-            # Get spacing info from CWDH - use advance for positioning
-            if width_info:
-                left = int(width_info.left * self.scale)
-                advance = int(width_info.char_width * self.scale) if width_info.char_width > 0 else scaled_pixmap.width()
-            else:
-                # Fallback: use actual glyph width
-                left = 0
-                advance = scaled_pixmap.width()
-            
-            painter.drawPixmap(x + left, y, scaled_pixmap)
+            glyph_pixmap = self.glyphs[glyph_index]
+            source_x = max(0, width_info.left)
+            source_x = min(source_x, glyph_pixmap.width())
+            source_width = min(width_info.glyph_width, glyph_pixmap.width() - source_x)
+            source_height = glyph_pixmap.height()
+
+            left = int(width_info.left * self.scale)
+            advance = int(width_info.char_width * self.scale)
+            min_advance = int(max(0, width_info.left + width_info.glyph_width) * self.scale)
+
+            if advance <= 0:
+                advance = int(max(width_info.glyph_width, self.bffnt.finf.default_char_width) * self.scale)
+            elif min_advance > advance:
+                # Keep preview readable when the metrics would visually overlap the next glyph.
+                advance = min_advance
+
+            draw_y = y + baseline - glyph_baseline
+
+            if source_width > 0 and source_height > 0:
+                target_width = max(1, int(source_width * self.scale))
+                target_height = max(1, int(source_height * self.scale))
+                painter.drawPixmap(
+                    QRect(x + left, draw_y, target_width, target_height),
+                    glyph_pixmap,
+                    QRect(source_x, 0, source_width, source_height),
+                )
+
             x += advance
