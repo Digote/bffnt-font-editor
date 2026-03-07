@@ -51,20 +51,22 @@ def encode_bc4_block(pixels: bytes) -> bytes:
         indices = 0  # All indices point to alpha0
     else:
         # Use mode with 8 interpolated values (alpha0 > alpha1)
-        # This gives best precision for most cases
+        # This gives best precision for most cases.
+        # IMPORTANT: Uses floor division (no rounding) to match the decoder exactly,
+        # ensuring a lossless decode→encode→decode round-trip.
         alpha0 = max_alpha
         alpha1 = min_alpha
         
-        # Pre-compute interpolated values
+        # Pre-compute interpolated values (must match decode_bc4_block exactly)
         alphas = [0] * 8
         alphas[0] = alpha0
         alphas[1] = alpha1
-        alphas[2] = (6 * alpha0 + 1 * alpha1 + 3) // 7
-        alphas[3] = (5 * alpha0 + 2 * alpha1 + 3) // 7
-        alphas[4] = (4 * alpha0 + 3 * alpha1 + 3) // 7
-        alphas[5] = (3 * alpha0 + 4 * alpha1 + 3) // 7
-        alphas[6] = (2 * alpha0 + 5 * alpha1 + 3) // 7
-        alphas[7] = (1 * alpha0 + 6 * alpha1 + 3) // 7
+        alphas[2] = (6 * alpha0 + 1 * alpha1) // 7
+        alphas[3] = (5 * alpha0 + 2 * alpha1) // 7
+        alphas[4] = (4 * alpha0 + 3 * alpha1) // 7
+        alphas[5] = (3 * alpha0 + 4 * alpha1) // 7
+        alphas[6] = (2 * alpha0 + 5 * alpha1) // 7
+        alphas[7] = (1 * alpha0 + 6 * alpha1) // 7
         
         # Find best index for each pixel
         indices = 0

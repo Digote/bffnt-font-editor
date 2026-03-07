@@ -444,9 +444,11 @@ class BFFNTParser:
             f.seek(sheet_data_offset)  # Reset position
             
             if first_bytes == b'BNTX':
-                # For Switch BNTX: read the entire BNTX block as a single chunk
-                # The BNTX size is stored at offset 0x18 from BNTX start
-                f.seek(sheet_data_offset + 0x18)
+                # For Switch BNTX: read the entire BNTX block as a single chunk.
+                # BNTX header layout:
+                #   +0x18: Relocation table offset (from BNTX start) — NOT the file size
+                #   +0x1C: Total file size (includes the _RLT relocation table at the end)
+                f.seek(sheet_data_offset + 0x1C)
                 bntx_total_size = struct.unpack('<I', f.read(4))[0]
                 f.seek(sheet_data_offset)
                 
@@ -587,29 +589,22 @@ class BFFNTParser:
     def _parse_krng_if_present(self, f: BinaryIO, header: FFNTHeader) -> Optional[KRNG]:
         """
         Parse KRNG section if present in the file.
-        Scans from current position to end of file looking for KRNG magic.
+        Reads remaining file data and searches for the KRNG magic bytes.
         """
-        # Save current position
         current_pos = f.tell()
         
-        # Scan for KRNG section from current position to file size
         try:
-            while f.tell() < header.file_size:
-                pos = f.tell()
-                magic_bytes = f.read(4)
-                if len(magic_bytes) < 4:
-                    break
-                
-                if magic_bytes == b'KRNG':
-                    # Found KRNG section
-                    section_size = self._read_u32(f)
-                    # Read the raw kerning data (section_size includes magic and size field)
+            remaining = f.read(header.file_size - current_pos)
+            idx = remaining.find(b'KRNG')
+            if idx >= 0:
+                size_data = remaining[idx + 4:idx + 8]
+                if len(size_data) == 4:
+                    fmt = '<I' if self.little_endian else '>I'
+                    section_size = struct.unpack(fmt, size_data)[0]
                     data_size = section_size - 8
-                    data = f.read(data_size)
-                    return KRNG(section_size=section_size, data=data)
-                else:
-                    # Not KRNG, continue searching
-                    pass
+                    if data_size >= 0 and idx + 8 + data_size <= len(remaining):
+                        data = remaining[idx + 8:idx + 8 + data_size]
+                        return KRNG(section_size=section_size, data=data)
         except Exception:
             pass
         

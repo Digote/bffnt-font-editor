@@ -94,8 +94,16 @@ class BFFNTWriter:
         texture_data_start = f.tell()
         self._write_texture_data(f)
         
-        # After texture data, align to 4 bytes
-        self._align(f, 4)
+        # After texture data, pad to preserve the original TGLP section boundary.
+        # The original file has post-BNTX zero padding inside the TGLP section
+        # (between BNTX end and CWDH start). Dropping it makes the file smaller.
+        tglp_intended_end = tglp_start + self.bffnt.tglp.section_size
+        current_pos = f.tell()
+        if current_pos < tglp_intended_end:
+            f.write(bytes(tglp_intended_end - current_pos))
+        elif current_pos > tglp_intended_end:
+            # New texture data is larger than the original section – just align.
+            self._align(f, 4)
         
         # Write CWDH sections
         cwdh_start = f.tell()
@@ -115,8 +123,9 @@ class BFFNTWriter:
         # Get final file size
         file_size = f.tell()
         
-        # Calculate actual TGLP section size (header + texture data)
-        tglp_section_size = texture_data_start - tglp_start + sum(len(sheet) for sheet in self.bffnt.tglp.sheet_data)
+        # TGLP section size = everything from TGLP magic up to (but not including)
+        # CWDH. This correctly accounts for the post-BNTX padding that was written above.
+        tglp_section_size = cwdh_start - tglp_start
         
         # Go back and update TGLP section with correct values
         # sheet_data_offset is absolute file position

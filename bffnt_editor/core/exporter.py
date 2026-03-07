@@ -352,7 +352,8 @@ def update_bffnt_glyph_width(bffnt: BFFNTFile, glyph_index: int,
     return False
 
 
-def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image]) -> bytes:
+def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image],
+                          original_sheets: Optional[List[Image.Image]] = None) -> bytes:
     """
     Apply imported sheets to a BFFNT file and return modified BNTX data.
     
@@ -360,15 +361,22 @@ def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image]) -> bytes:
     relocation table _RLT) and only replaces the raw texture data. This ensures
     compatibility with the game, which expects a valid BNTX structure.
     
+    When `original_sheets` is provided (the already-decoded sheets held in the GUI),
+    sheets that are pixel-identical to their originals are preserved byte-for-byte
+    (no re-encode), ensuring a perfectly identical output when nothing was changed.
+    
     Args:
         bffnt: Original BFFNT file
-        sheets: New texture sheets
+        sheets: New texture sheets to apply
+        original_sheets: The decoded original sheets already available in the GUI.
+                         When provided, used for fast pixel comparison to skip
+                         re-encoding of unchanged sheets.
         
     Returns:
         New BNTX texture data to replace in BFFNT
     """
     import struct
-    from .texture_encoder import encode_rgba_to_bc4, swizzle_block_linear, calculate_block_height, div_round_up
+    from ..texture.encoder import encode_rgba_to_bc4, swizzle_block_linear
     from PIL import Image
     
     # Get the original BNTX data
@@ -376,8 +384,7 @@ def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image]) -> bytes:
     
     # Check if it's a valid BNTX
     if original_bntx[:4] != b'BNTX':
-        # Fall back to full rebuild if not a valid BNTX
-        from .texture_encoder import encode_sheets_for_bffnt
+        from ..texture.encoder import encode_sheets_for_bffnt
         format_code = 0x1D01  # BC4 by default
         bntx_data, sheet_size = encode_sheets_for_bffnt(sheets, format_code)
         return bntx_data
@@ -385,8 +392,7 @@ def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image]) -> bytes:
     # Find the texture data region in the original BNTX
     brtd_offset = original_bntx.find(b'BRTD')
     if brtd_offset < 0:
-        # No BRTD section, fall back to full rebuild
-        from .texture_encoder import encode_sheets_for_bffnt
+        from ..texture.encoder import encode_sheets_for_bffnt
         format_code = 0x1D01
         bntx_data, sheet_size = encode_sheets_for_bffnt(sheets, format_code)
         return bntx_data
@@ -394,43 +400,49 @@ def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image]) -> bytes:
     # BRTD header is 16 bytes, texture data follows
     data_start = brtd_offset + 16
     
-    # Get file size from BNTX header at offset 0x18
-    # This is the size of the BNTX without the _RLT relocation table
-    # _RLT follows immediately after this
-    file_size = struct.unpack_from('<I', original_bntx, 0x18)[0]
-    data_end = file_size  # Texture data ends where _RLT begins
+    # +0x18 = relocation table offset (start of _RLT — no texture data past here)
+    reloc_offset = struct.unpack_from('<I', original_bntx, 0x18)[0]
+    data_end = reloc_offset
     
-    # Sanity check: file_size should be less than total size
-    if file_size >= len(original_bntx) or file_size <= data_start:
-        # Invalid file_size, use full length
+    # Sanity check
+    if reloc_offset >= len(original_bntx) or reloc_offset <= data_start:
         data_end = len(original_bntx)
     
     original_tex_size = data_end - data_start
-    expected_per_sheet = original_tex_size // len(sheets)
+    expected_per_sheet = original_tex_size // len(sheets) if sheets else 0
     
-    # Encode each sheet
+    # Encode each sheet — or reuse original bytes if the sheet is unchanged.
+    # When original_sheets is provided, compare alpha channels (the channel BC4
+    # encodes) to decide whether to skip re-encoding.
     encoded_sheets = []
-    for sheet in sheets:
-        # Flip Y axis (Switch stores textures upside down)
-        flipped = sheet.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    for i, sheet in enumerate(sheets):
+        reuse_original = False
         
-        # Encode to BC4
-        bc4_data = encode_rgba_to_bc4(flipped)
+        if original_sheets is not None and i < len(original_sheets):
+            orig = original_sheets[i]
+            try:
+                if sheet.size == orig.size:
+                    sheet_a = sheet.convert('RGBA').split()[3].tobytes()
+                    orig_a  = orig.convert('RGBA').split()[3].tobytes()
+                    if sheet_a == orig_a:
+                        raw_start = data_start + i * expected_per_sheet
+                        raw_end   = raw_start + expected_per_sheet
+                        if raw_end <= len(original_bntx):
+                            encoded_sheets.append(original_bntx[raw_start:raw_end])
+                            reuse_original = True
+            except Exception:
+                pass
         
-        # Swizzle with block-linear layout
-        width, height = sheet.size
-        bpp = 8  # BC4 = 8 bytes per 4x4 block
-        blk_w, blk_h = 4, 4
-        
-        swizzled = swizzle_block_linear(width, height, blk_w, blk_h, bpp, bc4_data)
-        
-        # Pad or truncate to match expected size
-        if len(swizzled) < expected_per_sheet:
-            swizzled = swizzled + bytes(expected_per_sheet - len(swizzled))
-        elif len(swizzled) > expected_per_sheet:
-            swizzled = swizzled[:expected_per_sheet]
-        
-        encoded_sheets.append(swizzled)
+        if not reuse_original:
+            flipped = sheet.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            bc4_data = encode_rgba_to_bc4(flipped)
+            width, height = sheet.size
+            swizzled = swizzle_block_linear(width, height, 4, 4, 8, bc4_data)
+            if len(swizzled) < expected_per_sheet:
+                swizzled = swizzled + bytes(expected_per_sheet - len(swizzled))
+            elif len(swizzled) > expected_per_sheet:
+                swizzled = swizzled[:expected_per_sheet]
+            encoded_sheets.append(swizzled)
     
     # Combine encoded sheets
     new_tex_data = b''.join(encoded_sheets)
@@ -441,7 +453,7 @@ def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image]) -> bytes:
     elif len(new_tex_data) > original_tex_size:
         new_tex_data = new_tex_data[:original_tex_size]
     
-    # Build the new BNTX by preserving header and _RLT, replacing only texture data
+    # Build the new BNTX by preserving header and _RLT, replacing only the texture data
     result = bytearray(original_bntx)
     result[data_start:data_end] = new_tex_data
     

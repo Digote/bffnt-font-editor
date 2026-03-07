@@ -1599,17 +1599,20 @@ class MainWindow(QMainWindow):
                 )
                 return
             
-            # Encode and apply to BFFNT
+            # Encode and apply to BFFNT.
+            # Pass self.sheets (current decoded originals) so unchanged sheets are
+            # preserved byte-for-byte without re-encoding.
             self.status_bar.showMessage("Encoding textures...")
             QApplication.processEvents()
             
-            new_bntx_data = apply_imported_sheets(self.bffnt, new_sheets)
+            new_bntx_data = apply_imported_sheets(self.bffnt, new_sheets, original_sheets=self.sheets)
             update_bffnt_textures(self.bffnt, new_bntx_data, len(new_sheets))
             
             # Update display
             self.sheets = new_sheets
             self.sheet_pixmaps = [pil_to_qpixmap(sheet) for sheet in self.sheets]
-            self.textures_modified = True  # Mark that textures need re-encoding
+            # textures_modified stays False: BNTX is already re-encoded above.
+            # At save time it will NOT be re-encoded again, preserving the result.
             
             # Re-extract glyphs
             glyphs_pil = extract_all_glyphs(self.bffnt, self.sheets)
