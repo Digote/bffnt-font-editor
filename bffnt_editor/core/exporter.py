@@ -435,9 +435,16 @@ def apply_imported_sheets(bffnt: BFFNTFile, sheets: List[Image.Image],
         
         if not reuse_original:
             flipped = sheet.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-            bc4_data = encode_rgba_to_bc4(flipped)
             width, height = sheet.size
-            swizzled = swizzle_block_linear(width, height, 4, 4, 8, bc4_data)
+            # Detect original texture format from BNTX BRTI header
+            brti_off = original_bntx.find(b'BRTI')
+            orig_format = struct.unpack_from('<I', original_bntx, brti_off + 0x1C)[0] if brti_off >= 0 else 0x1D01
+            if orig_format in (0x0201,):  # R4G4/A8 — 1 byte per pixel
+                linear_data = bytes(flipped.convert('RGBA').split()[3].tobytes())
+                swizzled = swizzle_block_linear(width, height, 1, 1, 1, linear_data)
+            else:  # BC4 default
+                bc4_data = encode_rgba_to_bc4(flipped)
+                swizzled = swizzle_block_linear(width, height, 4, 4, 8, bc4_data)
             if len(swizzled) < expected_per_sheet:
                 swizzled = swizzled + bytes(expected_per_sheet - len(swizzled))
             elif len(swizzled) > expected_per_sheet:

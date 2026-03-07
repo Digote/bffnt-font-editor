@@ -396,7 +396,7 @@ def get_format_info(format_code: int) -> Tuple[int, int, int]:
     
     format_map = {
         0x0101: (1, 1, 1),    # R8
-        0x0201: (2, 1, 1),    # R8G8
+        0x0201: (1, 1, 1),    # R4G4 (1 byte/pixel; NX BFFNT uses this as single-channel A8)
         0x0301: (3, 1, 1),    # R8G8B8
         0x0B01: (4, 1, 1),    # R8G8B8A8
         0x1A01: (8, 4, 4),    # BC1

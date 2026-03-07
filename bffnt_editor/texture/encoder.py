@@ -252,8 +252,11 @@ def build_bntx(sheets: List[Image.Image], params: BNTXBuildParams = None) -> byt
         # Flip Y axis (Switch stores textures upside down)
         flipped = sheet.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
         
-        # Encode to BC4
-        linear_data = encode_rgba_to_bc4(flipped)
+        # Encode based on format
+        if params.format_code in (0x0201,):  # R4G4 used as A8 (1 byte per pixel)
+            linear_data = bytes(flipped.convert('RGBA').split()[3].tobytes())
+        else:  # Default: BC4
+            linear_data = encode_rgba_to_bc4(flipped)
         
         # Swizzle
         swizzled = swizzle_block_linear(width, height, blk_width, blk_height, bpp, linear_data)
